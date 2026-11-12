@@ -1,6 +1,6 @@
 # KOIKI Framework 採用方針（案）
 
-状態：**DRAFT**（§5 決定事項反映、§5.2 識別子はOwner確認待ち）
+状態：**DRAFT**（§5 決定事項・§5.2 識別子をOwner確認済み、§7 実証結果記録）
 作成日：2026-11-12
 
 ## 1. 目的と位置づけ
@@ -99,7 +99,7 @@ Reference（`koiki-reference-app`）の直接依存のうち、Spring MVC系の�
 - Referenceの業務機能（expense等）・`spring-boot-starter-cache`等の業務都合の依存は移植しない。
 - local認証のHMAC鍵等、Starterが要求する設定値は環境変数で与え、値をrepositoryに置かない。
 
-### 5.2 識別子（提案）
+### 5.2 識別子（Owner確認済み）
 
 | 項目 | 提案値 |
 | --- | --- |
@@ -128,7 +128,7 @@ Reference（`koiki-reference-app`）の直接依存のうち、Spring MVC系の�
 - base imageはdigestで固定する。AWS向けの固有設定（ECR・ECS等）は本土台に含めず、案件で追加する。
 - Docker Desktop等のcontainer実行環境は開発PCの前提ツールに追加する。
 
-## 6. 土台の初期構成（案）
+## 6. 土台の初期構成
 
 ```
 koiki-java-scaffold/
@@ -145,7 +145,7 @@ koiki-java-scaffold/
 ├─ src/main/java/com/example/scaffold/  最小Spring MVC application
 ├─ src/main/resources/          application.properties、db/migration/scaffold、templates
 ├─ src/test/java/...            起動確認、KOIKI ArchUnit規則、Testcontainers
-├─ .github/workflows/ci.yml     wrapper→./mvnw verify→container build
+├─ docs/ci/ci.yml              GitHub Actions定義。管理者が.github/workflows/へ配置
 └─ docs/policy/                 本書等の方針文書
 ```
 
@@ -160,15 +160,36 @@ koiki-java-scaffold/
 | 同梱`prepare-koiki.ps1` | SHA-256 `9c1555e5…1f1d`。Framework repository main（`f6ff36d`）の`build-support/framework-distribution/prepare-koiki.ps1`と一致 |
 | 空のlocal repositoryへの取込 | `-LocalArchive`で成功。14座標照合、JAR12／POM14、完了記録`.koiki-distributions/0.1.0-preview.1.json`生成 |
 
-- Maven実行にはFramework repositoryのMaven Wrapperを一時的に使用した。本repositoryのWrapper追加後に、本repository単独で再実証する。
+- 初回はFramework repositoryのMaven Wrapperを一時的に使用した。§7.2で本repositoryの取得wrapper・Wrapperだけで再実証した。
 
-### 7.2 build（未実施）
+### 7.2 空のlocal repositoryからbuild・実行まで（2026-11-12、Claude cloud session）
 
-土台の最小構成の実装後、同じ空のlocal repositoryから`./mvnw verify`・container buildまでを実証し、本節へ記録する。
+新規の空local Maven repository（KOIKI・third-party依存とも未取得）を`-Dmaven.repo.local`／`-LocalRepository`で指定して実施した。
+
+| 段階 | 結果 |
+| --- | --- |
+| 取得・取込（`tools/prepare-koiki-distribution.ps1`） | public Releaseから未認証取得、ZIP・同梱script SHA-256一致、14座標登録 |
+| `./mvnw verify` | BUILD SUCCESS。test 8件PASS（Architecture Rules 2、PostgreSQL上のアプリケーション6）。NullAway有効でcompile |
+| アプリケーションtestの内容 | KOIKI migration3件適用、未ログイン`/`→`/login`、未一致route拒否（401／403）、CSRFなしlogin拒否、誤password拒否、login→JDBC Session1件→logoutで0件 |
+| 実行可能JAR | Compose `db`＋`java -jar`で起動。`/`→302 `/login`、`/login` 200、未一致route 401。標準Security Header、Session Cookie `Secure; HttpOnly; SameSite=Lax` |
+| container | `docker build`成功（base imageはdigest固定）。Compose `app` profileで起動し同じ応答。実行user `10001:10001`、SIGTERMでgraceful shutdown完了（exit 143、OOMなし） |
+
+観測した注意点：
+
+- Flywayがアプリ側locationについて`No migrations found`をWARN出力する。アプリmigration未作成の土台では想定どおり。
+- Spring Securityが`UserDetailsService`未使用のWARNを出力する。KOIKIのAuthenticationProvider構成による想定内の出力。
+- `koiki-starter-web-mvc`の共通fragment `koiki/fragments :: header`はReference固有のmenu（経費申請等）を含むため、本土台では`head`のみ利用し、headerは自前で持つ。Frameworkへのfeedback候補。
+
+Claude cloud session固有の事象（アプリの欠陥ではない）：
+
+- Docker daemonが未起動だったため手動で起動した。
+- Docker Hubの匿名pull制限（HTTP 429）に一時的に当たった。test中はECR Public mirrorから取得したPostgreSQL imageを同名tagで利用し、Testcontainersの補助container（Ryuk）を`TESTCONTAINERS_RYUK_DISABLED=true`で無効化した。時間をおいてDocker Hubから取得でき、container buildは正規のimage名・digestで実施した。
+- ECR Publicのlayer配信host（CloudFront）はsessionのnetwork policyで拒否された。
 
 ## 8. 次の手順（案）
 
-1. §5.2の識別子をOwner確認する。
-2. 最小構成（§6）を実装し、§7.2の実証を行う。
-3. Claude cloud用の個人環境（setup scriptでwrapper実行）を作成し、新しいsessionで自動準備を確認する。
-4. 方式②：社内GHEのhost、CI用読取資格情報の形態、持ち込み時の配布元の書換え手順を、方式①のwrapperに合わせて整理する。
+1. **初回ユーザーの用意方法を決める**：Frameworkは組込みユーザーを提供せず、`IdentityAdministration`はログイン済みの`FrameworkPrincipal`を操作者として要求する。初回管理者の作成経路（運用手順、管理用の非Web経路、OIDC連携等）は案件判断。現状の土台にはtest用fixture以外のユーザー作成手段がない。
+2. **container imageの取得元**：Docker Hubの匿名pull制限を考慮し、案件・CIでmirror（ECR Public、社内registry等）を使うかを決める。`Dockerfile`の`JAVA_RUNTIME_IMAGE`は同じdigestでの差し替えを想定している。
+3. **Claude cloud用の個人環境**：setup scriptで取得wrapperの実行とDocker daemonの起動を行い、新しいsessionで自動準備を確認する。
+4. **方式②**：社内GHEのhost、CI用読取資格情報の形態、持ち込み時の配布元の書換え手順を、方式①のwrapper（`-Source GitHubCli`）に合わせて試行・整理する。
+5. **GitHub Actions**：Claude GitHub Appはworkflow fileをpushできない（`workflows`権限なし）。管理者が`docs/ci/ci.yml`を`.github/workflows/`へ配置した後、GitHub-hosted runnerでの取得→verify→container buildを確認する。

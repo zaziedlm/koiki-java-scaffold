@@ -1,0 +1,41 @@
+# Local development services.
+#   PostgreSQL only:            docker compose up -d db
+#   PostgreSQL + application:   docker compose --profile app up -d --build
+# Values come from .env (copy .env.example). Ports are bound to loopback only.
+name: koiki-java-scaffold
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: scaffold
+      POSTGRES_USER: scaffold
+      POSTGRES_PASSWORD: ${SCAFFOLD_DB_PASSWORD:?Set SCAFFOLD_DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scaffold -d scaffold"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    profiles: ["app"]
+    build: .
+    image: koiki-java-scaffold:local
+    environment:
+      SCAFFOLD_DB_URL: jdbc:postgresql://db:5432/scaffold
+      SCAFFOLD_DB_USERNAME: scaffold
+      SCAFFOLD_DB_PASSWORD: ${SCAFFOLD_DB_PASSWORD:?Set SCAFFOLD_DB_PASSWORD in .env}
+      KOIKI_SOURCE_HMAC_KEY_ID: ${KOIKI_SOURCE_HMAC_KEY_ID:?Set KOIKI_SOURCE_HMAC_KEY_ID in .env}
+      KOIKI_SOURCE_HMAC_KEY: ${KOIKI_SOURCE_HMAC_KEY:?Set KOIKI_SOURCE_HMAC_KEY in .env}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

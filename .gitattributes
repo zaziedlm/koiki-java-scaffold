@@ -1,0 +1,17 @@
+* text=auto
+*.java text eol=lf
+*.xml text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.properties text eol=lf
+*.sql text eol=lf
+*.html text eol=lf
+*.sh text eol=lf
+mvnw text eol=lf
+Dockerfile text eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.jar binary
+# Reviewed copy of the distributed script: keep the exact bytes so its SHA-256 matches the ZIP.
+tools/prepare-koiki.ps1 -text
