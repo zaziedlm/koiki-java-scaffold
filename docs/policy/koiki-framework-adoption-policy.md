@@ -12,6 +12,23 @@
 - 本repositoryはFramework source・Root Reactor・`relativePath`に依存せず、配布されたbinaryだけで構築できること。
 - Framework側の検証・承認手続（Framework repositoryの`AGENTS.md`）は本repositoryには適用しない。本repositoryの規則は本repositoryの`AGENTS.md`／`CLAUDE.md`に置く。
 
+## 現行追加方針：実案件では社内Framework Releaseのみを利用する
+
+Owner指示により、Framework sourceと配布ZIPを社内へ持ち込み、同じtag名・asset名でReleaseへ登録する。
+実案件はpublicを参照しない。以下の方式①の採用記述・publicでの検証は公開Scaffoldでの履歴であり、実案件の取得方式ではない。
+社内版はGitHubCli方式・社内host／repositoryを設定する。ZIPが同じbytesなら版・hashは維持し、認証失敗時にpublicへfallbackしない。
+初回Prepare前の必須操作は[構築手順書§3.1](../development/local-setup-guide.md)に従う。
+公開Scaffoldの既定配布設定はpublic検証用に保持し、社内へ持ち込む際に社内用exampleから置き換えてcommitする。
+社内の実host／repositoryは未提示のため未設定。実接続・SSOは社内環境で別途確認する。
+
+設定例`tools/koiki-distribution.internal.properties.example`を追加し、取得wrapperは設定のsource／host／repositoryを使用する。
+一括Prepareと個別取込は`-ConfigurationFile`も受け取る。配布同梱installerは変更しない。
+ローカル代替ghで社内host／repositoryの受渡し・取得失敗時停止・GH_HOST復元・未置換設定の拒否を確認した。
+社内用の代替設定を指定したPrepareは、既存の正規ZIP cacheから14座標／42 payload照合と全13 test・JAR生成に成功した。
+社内からの実download成功や認証成立を示す結果ではない。
+ignored Evidenceは`.koiki/verification/internal-distribution/`へ保持する。
+
+
 ## 2. Framework取得方式
 
 Framework提供の**Release asset一式配布**（固定版ZIP）を採用する。GitHub Packages、開発者ごとのPATは使わない。
@@ -26,7 +43,8 @@ Framework提供の**Release asset一式配布**（固定版ZIP）を採用する
 ZIP `koiki-framework-<version>.zip`（Release tag `framework-<version>`）に次を同梱する。
 
 - Maven repository配置のKOIKI artifact一式：14 POM（うち12はJAR付き）
-- `SHA256SUMS`、`manifest.json`
+- preview.2は上記にsources11 JAR・Javadoc5 JARを追加（計42 payload）
+- `SHA256SUMS`、`manifest.json`（preview.2はschema2）
 - 取込script `prepare-koiki.ps1`、`README.md`
 
 全moduleは同一版。異なる配布物のmoduleを混在させない。
@@ -38,7 +56,7 @@ ZIP `koiki-framework-<version>.zip`（Release tag `framework-<version>`）に次
 3. 同梱の`prepare-koiki.ps1`を`-LocalArchive`で実行し、内部payloadのhash照合とMaven local repositoryへの登録を行う。
 4. 通常どおり`./mvnw verify`でbuildする。
 
-1〜3は本repositoryの取得wrapper（`tools/`配下に新設予定）で一括実行し、`gh`認証を不要にする。
+1〜3は本repositoryの取得wrapper（`tools/prepare-koiki-distribution.ps1`）で一括実行し、`gh`認証を不要にする。
 `prepare-koiki.ps1`は本repositoryにレビュー済みcopyを保持し、取得したZIPのものと一致することも確認する。
 
 ### 2.3 方式②との差分
@@ -51,15 +69,15 @@ ZIP `koiki-framework-<version>.zip`（Release tag `framework-<version>`）に次
 
 ## 3. 版固定
 
-| 項目 | 初期値 | 管理場所（予定） |
+| 項目 | 現行値 | 管理場所 |
 | --- | --- | --- |
-| Framework版 | `0.1.0-preview.1` | `pom.xml`の`koiki.version` property |
-| ZIP SHA-256 | `470a2fac4a30d3c323e38341b855e23e263c7aced501c3c8a378e06db1a8b27c` | `tools/koiki-distribution.properties` |
+| Framework版 | `0.1.0-preview.2` | `pom.xml`のParent版 |
+| ZIP SHA-256 | `7858dc3719ed9f8f0fab164e6dfa2e6015893dd971b0d7bd6a48a37136aab08e` | `tools/koiki-distribution.properties` |
 | 配布元 | `zaziedlm/KOIKI-JAVAWEB` | 同上 |
 
-- 2026-11-12、Claude cloud sessionで未認証取得（HTTP 200）とSHA-256を観測した値。採用時に再確認する。
-- `0.1.0-preview.1`はPhase 5の正式／support付き提供ではない。preview版としての制約を受け入れて採用する。
-- SNAPSHOTは追従しない。版更新はwrapper設定・`koiki.version`・hashを同時に変更するPRで行う。
+- preview.2の公開記録を根拠に固定し、今回の公開ZIP実取得でSHA-256と全manifest payloadを照合した。更新・検証結果は§7.3へ記録する。
+- `0.1.0-preview.2`はPhase 5の正式／support付き提供ではない。preview版としての制約を受け入れて採用する。
+- SNAPSHOTは追従しない。版更新はwrapper設定・Parent版・hashを同時に変更するPRで行う。
 
 ## 4. 環境別の準備
 
@@ -151,6 +169,8 @@ koiki-java-scaffold/
 
 ## 7. 取得経路の実証
 
+§7.1〜7.2はpreview.1採用時の履歴であり、preview.2の結果とは分ける。
+
 ### 7.1 取得・取込（2026-11-12、Claude cloud session）
 
 | 確認 | 結果 |
@@ -186,9 +206,141 @@ Claude cloud session固有の事象（アプリの欠陥ではない）：
 - Docker Hubの匿名pull制限（HTTP 429）に一時的に当たった。test中はECR Public mirrorから取得したPostgreSQL imageを同名tagで利用し、Testcontainersの補助container（Ryuk）を`TESTCONTAINERS_RYUK_DISABLED=true`で無効化した。時間をおいてDocker Hubから取得でき、container buildは正規のimage名・digestで実施した。
 - ECR Publicのlayer配信host（CloudFront）はsessionのnetwork policyで拒否された。
 
+### 7.3 preview.2への配布版更新（2026-11-17、Codex Cloud session）
+
+Scaffold開発ブランチの`a4120a3`を起点に、Parentと配布設定を`0.1.0-preview.2`へ更新した。
+`tools/prepare-koiki.ps1`は公開ZIP同梱版をレビューし、byte単位でそのまま差し替えた。
+取得wrapper・アプリケーションcode・test・container設定・CI配置は変更していない。
+
+| 確認 | 結果 |
+| --- | --- |
+| 公開ZIP | [framework-0.1.0-preview.2](https://github.com/zaziedlm/KOIKI-JAVAWEB/releases/tag/framework-0.1.0-preview.2)から未認証取得。SHA-256は§3と一致 |
+| 配布元source | manifestの`sourceCommit=557fbfc59ddbf1275b1ff53c95b68d9e21739dfa`、`sourceDirty=false`、schema2 |
+| ZIP内容 | manifest記載44 fileのsize／SHA-256一致（Maven payload42＋installer／README） |
+| installer | SHA-256 `8ed85c91d1ab55027c374f70fdd67aa307de0c26c4f78b6c79d61ba2cb4bed4a`。公開ZIP同梱版と完全一致 |
+| 取得wrapper→登録 | 実取得済みZIP cacheから、新規専用Maven repositoryへ14座標／42 payload登録成功。全42 hash・schema2完了marker・lock残留なしを別途照合 |
+| `./mvnw --batch-mode --no-transfer-progress -Dmaven.repo.local=<専用repository> verify` | BUILD SUCCESS。Architecture Rules 2件＋実PostgreSQL上のアプリケーション6件、計8件PASS、failure／error／skip 0。NullAway有効でcompile、実行可能JAR生成成功 |
+| 実行可能JAR内容 | KOIKI依存8 JARすべてpreview.2。sources／Javadoc JAR混入0 |
+| test用container | 通常Testcontainers実行（Ryuk有効）。終了後`docker ps -a`は空 |
+
+環境：JDK21.0.12.1、Maven Wrapper3.9.16、PowerShell7.5.4（公式配布hash照合）、Docker28.4.0。
+初回PowerShell起動はuser cacheのread-only制約で停止したため、XDG cache／config／dataを検証専用directoryへ指定した。
+初回Maven登録はCentralの直接名前解決に失敗し、完了markerは作られなかった。
+既存の環境用JDK／trustStore／proxy設定を適用して同じZIP・登録先で再実行し、上記の登録とbuildが成功した。
+これらは環境設定だけの対応で、配布installerやアプリへの回避実装は加えていない。
+
+このsession内のignored資材は`.koiki/downloads/`、`.koiki/verification/`、
+`.koiki/prepare-preview2.log`、`.koiki/verify-preview2.log`と`target/surefire-reports/`に保持する。
+ZIP・Maven cache・raw logはGitに含めない。独自`CookieSerializer`の見直し、IDE実表示、JAR／containerでの再起動確認、
+GitHub Actions有効化・実行、社内GHE、main統合は今回の結果に含めず、後続作業とする。
+
+### 7.4 preview.2標準CookieSerializerへの移行（2026-11-17、Codex Cloud session）
+
+preview.1の構成順序問題を補うために追加していた`scaffoldCookieSerializer()`を削除し、
+不要な`@EnableConfigurationProperties(ServerProperties.class)`とimportを除去した。
+アプリのSecurityFilterChain・route・CSRF・Security Header・既存logout customizer呼出しは維持する。
+Cookie属性の設定は`server.servlet.session.cookie.*`を用い、Spring Bootのserializer生成に任せる。
+Framework sourceの変更や独自serializerの代替実装は行っていない。
+
+既存アプリtestは組込みserverを起動する`RANDOM_PORT`へ変更し、MockMvc経由の既存6件を維持した。
+これによりMock ServletContextだけの構成と異なり、Bootの実行可能JARと同じembedded-server用Cookie構成を評価する。
+追加のHTTP test 1件は別の組込みserverで実通信する。
+
+| 確認 | 結果 |
+| --- | --- |
+| Bean | アプリ独自宣言なしでBootの`cookieSerializer`だけが登録され、アプリのlogout customizer注入も成立 |
+| ローカルHTTP設定 | 既存login testで`secure=false`の反映、HttpOnly・SameSite=Laxを確認 |
+| 実HTTP login | Cookie名`SCAFFOLDSESSION`・path／context-path `/scaffold`を指定し、実HTMLのCSRF tokenでlogin、認証済み画面とJDBC Session1件を確認 |
+| Cookie既定属性 | 発行・削除CookieともSecure・HttpOnly・SameSite=Lax、指定した名前・pathを確認 |
+| 実HTTP logout | Cookieを空値・Max-Age=0で削除、DB Session0件、旧Cookieを再送してもloginへredirect |
+| 全体verify | `./mvnw --batch-mode --no-transfer-progress -Dmaven.repo.local=<§7.3の専用repository> verify`成功。Architecture2＋既存アプリ6＋新規HTTP1＝9件、failure／error／skip0。実行可能JAR生成成功 |
+
+新規HTTP testはloopback HTTPへCookie headerを明示的に送る。
+Secure属性の検査と認証動作を対象とし、実ブラウザのSecure Cookie送信規則やTLS／proxyの検証とはしない。
+test用利用者は専用PostgreSQLへのfixtureであり、初回ユーザー作成手段を製品へ追加していない。
+container設定は変更せず、image再build・実ブラウザ・packaged JAR単独起動は今回の確認に含めない。
+
+READMEへ、既定Secure=trueを維持し、ローカルHTTP確認時だけ起動引数／container環境変数でfalseを指定する方法を追記した。
+検証logはignoredの`.koiki/verify-boot-cookie.log`、XMLは`target/surefire-reports/`へ保持する。
+独自CookieSerializer見直しは本節で完了とし、§7.3の後続事項記述は更新前の履歴として読む。
+CI有効化・IDE・案件受入・main統合は後続とする。
+
+### 7.5 ローカル初回管理ユーザー登録とJAR起動（2026-11-17、Codex Cloud session）
+
+Ownerの「まずScaffoldをさくっと動かす」指示により、`tools/run-local.ps1`へ
+`Prepare`／`CreateAdmin`／`Start`の3段階を追加した。
+
+- Prepare：存在しない場合だけランダムsecret入り`.env`を作成（Unixでは0600）、Compose DB起動待ち、配布物取込、Maven verify。
+- CreateAdmin：メール・password（非表示・確認入力）を受け、同じJARを明示profile／flag付き非Webで起動する。
+  passwordはcommand lineや環境変数へ置かず、子Javaの標準入力で渡す。通常のWeb起動ではrunnerは登録されない。
+- Start：同じJARを127.0.0.1:8080で起動し、ローカルHTTP用にだけSecure Cookieをfalseへ上書きする。
+
+初期登録はpreview.2のIdentity schemaに依存するアプリ所有のローカルprovisioningである。
+公開`IdentityAdministration`が要求する既存認証主体を偽造せず、JDBCで初期データを登録する。
+Framework内部Entity／Repository・migration SQLのcopyは使わず、FrameworkのPasswordEncoderと公開BusinessAuditRecorderを利用する。
+ユーザーtableのlock下で空のIdentityだけを対象に、ACTIVE user／hash化credential／`SCAFFOLD_ADMIN` role／
+`SCAFFOLD:ADMIN` permissionと割当を同じtransactionで作る。
+監査は`SCAFFOLD_BOOTSTRAP`／`CREATE_INITIAL_ADMIN`、actorはANONYMOUS、subjectは生成user UUIDとする。
+失敗時はAuditも含めrollbackし、既存ユーザーは一切更新しない。
+入力はASCIIメール、NFC正規化後15〜128文字・bcrypt用UTF-8上限72 byteのpasswordに限定する。
+bootstrapの接続先は明示port付きloopback PostgreSQL URLに限定する。
+
+管理roleは今後のアプリ機能向けの印であり、Framework管理機能や全画面への特権アクセスを提供しない。
+本番bootstrap、追加ユーザー管理、password reset、漏洩password検査など通常のIdentity管理経路を代替しない。
+Framework更新時にschema・PasswordEncoder・password policyを再確認する。
+
+| 確認 | 結果 |
+| --- | --- |
+| `Prepare`実行 | `.env`自動生成、Compose DB healthy、配布取込、verify／JAR生成成功。Maven repositoryは§7.3と同じ専用pathを指定 |
+| 自動test | 全13件PASS（既存9＋初回登録4）、failure／error／skip0 |
+| 初回登録4件 | 作成・hash・Audit・管理権限付きlogin、既存Identity拒否、短いpassword拒否、Audit失敗時の全登録rollback |
+| CreateAdmin実行 | 同じpackaged JARの非Web起動で初回登録成功し、process正常終了 |
+| Start実行 | 同じpackaged JAR＋Compose PostgreSQL17.11、loopback port8080で起動 |
+| 実HTTP操作 | login→ホームにSCAFFOLD:ADMIN表示→対象userのDB Session1件→logoutで0件→旧Cookie再送拒否。初回登録Audit1件 |
+| 再登録 | CreateAdminの再実行が非zeroで終了。ユーザー1件・初回Audit1件を維持し、再login／logoutも成立 |
+
+実HTTPの初回確認ではlogout後の匿名CSRF用Sessionも総数へ含めたためassertionが失敗した。
+対象管理userのprincipal_nameで数えるよう検証harnessだけを訂正し、上記の1→0と旧Cookie拒否を確認した。
+先行して一時harnessのscript path誤りも訂正した。いずれも製品の認証処理を緩める変更はしていない。
+
+ignored Evidence：`.koiki/local-prepare.log`、`local-create-admin.log`、`local-create-admin-repeat.log`、
+`local-app.log`、`.koiki/verification/local-journey.json`、`target/surefire-reports/`。
+今回の手動確認用DBとJARは稼働保持。検証用メールは`local-admin@example.test`、ランダムpasswordは
+`.koiki/verification/local-admin-password`（0600）にのみ保持し、Gitや本書へ値を記録しない。
+`.env`もGit対象外である。停止はJava終了と`docker compose stop db`、volume削除・再seedは実施していない。
+このCloud検証はWindows／実ブラウザの操作確認を含まない。
+
+### 7.6 JAR／コンテナ起動の選択と手順整理（2026-11-17、Codex Cloud session）
+
+Owner指示により共通Prepare／CreateAdminの後に、既存Startか新規StartContainerを選ぶ構成へ整理した。
+既存Dockerfile・compose.yaml・.env・DB volumeを再利用し、設定ファイルは増やしていない。
+Compose appのcommandにローカルHTTP用`secure=false`だけを追加し、JAR内の既定は維持する。
+StartContainerはport競合確認、既存JARからのimage build、Compose起動、login HTTP200待ちを行う。
+StopContainerはappだけを停止し、DBとvolumeを保持する。Startは稼働中app containerとの競合を拒否する。
+
+| 検証 | 結果 |
+| --- | --- |
+| 全体verify | 13件PASS、failure／error／skip0、JAR生成成功 |
+| image build | 既存digest固定Temurin21からDockerfile build成功。非root user10001:10001 |
+| JAR→コンテナ | 既存JARのport8080稼働中はStartContainerが拒否。今回所有のJavaをSIGTERMで停止後、StartContainerで起動成功 |
+| 実HTTP | 同じDBの既存管理ユーザーでlogin、SCAFFOLD:ADMIN表示、対象user Session1→logoutで0、旧Cookie拒否 |
+| 逆向きの競合保護 | app container稼働中のStartが非zeroで拒否。別Javaを起動しない |
+| 停止 | StopContainerでexit143／OOM=false。DBはrunning／healthy、既存volumeを保持 |
+| 再起動 | StartContainerでimage再build・起動・HTTP200、同じユーザーで再login／logout成立。user1件／初回Audit1件を維持、再seedなし |
+| 最終状態 | app／DB稼働保持。app restart0／OOMなし、volumeは既存koiki-java-scaffold_db-data |
+
+初回buildはCloudのuser home read-onlyによるDocker buildxのcache作成拒否で停止した。
+検証processのDOCKER_CONFIGをignoredの専用directoryへ指定して解消し、Dockerfileや固定base imageは変更していない。
+Windows／実browser／社内GitHub接続／AWS／本番運用は今回の検証対象外。
+
+Evidenceはignoredの`.koiki/container-start.log`、`container-restart.log`、`verify-container-pattern.log`、
+`.koiki/verification/container-journey.json`、`container-restart-journey.json`、`jar-conflict.log`、`target/surefire-reports/`。
+READMEは入口・操作早見表へ整理し、詳細手順は構築手順書の「共通準備→A JAR／Bコンテナ→停止・再開・切替」へ統一した。
+§7.5のJAR稼働保持は当時の状態とし、現在は上記コンテナを稼働保持する。
+
 ## 8. 次の手順（案）
 
-1. **初回ユーザーの用意方法を決める**：Frameworkは組込みユーザーを提供せず、`IdentityAdministration`はログイン済みの`FrameworkPrincipal`を操作者として要求する。初回管理者の作成経路（運用手順、管理用の非Web経路、OIDC連携等）は案件判断。現状の土台にはtest用fixture以外のユーザー作成手段がない。
+1. **初回ユーザー**：ローカル開発は§7.5のCreateAdminで登録・起動できる。本番のbootstrap・追加ユーザー管理・password回復は別途案件判断。
 2. **container imageの取得元**：Docker Hubの匿名pull制限を考慮し、案件・CIでmirror（ECR Public、社内registry等）を使うかを決める。`Dockerfile`の`JAVA_RUNTIME_IMAGE`は同じdigestでの差し替えを想定している。
 3. **Claude cloud用の個人環境**：setup scriptで取得wrapperの実行とDocker daemonの起動を行い、新しいsessionで自動準備を確認する。
 4. **方式②**：社内GHEのhost、CI用読取資格情報の形態、持ち込み時の配布元の書換え手順を、方式①のwrapper（`-Source GitHubCli`）に合わせて試行・整理する。

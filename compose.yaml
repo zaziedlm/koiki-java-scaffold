@@ -25,6 +25,8 @@ services:
     profiles: ["app"]
     build: .
     image: koiki-java-scaffold:local
+    # Compose is for local HTTP only; the packaged JAR keeps its secure default.
+    command: ["--server.servlet.session.cookie.secure=false"]
     environment:
       SCAFFOLD_DB_URL: jdbc:postgresql://db:5432/scaffold
       SCAFFOLD_DB_USERNAME: scaffold

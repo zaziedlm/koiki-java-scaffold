@@ -5,9 +5,9 @@
     local Maven repository.
 
 .DESCRIPTION
-    Method 1 (default): downloads from the public GitHub Release without authentication.
+    The configuration selects PublicRelease or GitHubCli and the distribution host/repository.
     Method 2 (-Source GitHubCli): downloads with an authenticated GitHub CLI, e.g. from a
-    private repository on GitHub Enterprise (set GH_HOST, log in with `gh auth login`;
+    private repository on GitHub Enterprise (configure host, log in with `gh auth login`;
     in CI provide GH_TOKEN). Override the repository with -Repository when it differs.
 
     The ZIP SHA-256 and the reviewed tools/prepare-koiki.ps1 are both pinned in
@@ -16,7 +16,8 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('PublicRelease', 'GitHubCli')][string]$Source = 'PublicRelease',
+    [ValidateSet('PublicRelease', 'GitHubCli')][string]$Source,
+    [string]$ConfigurationFile,
     [ValidatePattern('^[\w.-]+/[\w.-]+$')][string]$Repository,
     [string]$LocalRepository,
     [string]$CacheDirectory
@@ -28,12 +29,21 @@ function Get-Hash([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm S
 
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $settings = @{}
-foreach ($line in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'koiki-distribution.properties')) {
+if (-not $ConfigurationFile) { $ConfigurationFile = Join-Path $PSScriptRoot 'koiki-distribution.properties' }
+foreach ($line in Get-Content -LiteralPath $ConfigurationFile) {
     if ($line -match '^\s*([\w.-]+)\s*=\s*(.*?)\s*$') { $settings[$Matches[1]] = $Matches[2] }
 }
 $version = $settings['koiki.version']
 $archiveSha256 = $settings['koiki.archive.sha256']
 if (-not $Repository) { $Repository = $settings['koiki.distribution.repository'] }
+if (-not $Source) { $Source = $settings['koiki.distribution.source'] }
+if ($Source -notin @('PublicRelease', 'GitHubCli')) { throw 'Configure koiki.distribution.source explicitly.' }
+$githubHost = $settings['koiki.distribution.host']
+if ($Source -eq 'GitHubCli' -and ($githubHost -notmatch '^[a-zA-Z0-9][a-zA-Z0-9.-]*(?::[0-9]+)?$' -or $githubHost -match 'REPLACE')) {
+    throw 'Configure the actual internal GitHub host (hostname only).'
+}
+if ($Repository -notmatch '^[\w.-]+/[\w.-]+$' -or $Repository -match 'REPLACE') { throw 'Configure the actual distribution owner/repository.' }
+
 
 $pomVersion = ([xml](Get-Content -LiteralPath (Join-Path $root 'pom.xml') -Raw)).project.parent.version
 if ($pomVersion -ne $version) {
@@ -65,8 +75,12 @@ if (-not (Test-Path -LiteralPath $archive)) {
         $null = Get-Command gh -ErrorAction Stop
         $downloadDirectory = Join-Path $CacheDirectory ('gh-' + [guid]::NewGuid().ToString('N'))
         try {
-            & gh release download "framework-$version" --repo $Repository --pattern $asset --dir $downloadDirectory
-            if ($LASTEXITCODE -ne 0) { throw 'gh release download failed.' }
+            $previousGhHost = $env:GH_HOST
+            try {
+                $env:GH_HOST = $githubHost
+                & gh release download "framework-$version" --repo $Repository --pattern $asset --dir $downloadDirectory
+                if ($LASTEXITCODE -ne 0) { throw 'gh release download failed; no public fallback is attempted.' }
+            } finally { $env:GH_HOST = $previousGhHost }
             Move-Item -LiteralPath (Join-Path $downloadDirectory $asset) -Destination $partial
         } finally {
             if (Test-Path -LiteralPath $downloadDirectory) { Remove-Item -LiteralPath $downloadDirectory -Recurse -Force }

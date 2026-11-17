@@ -29,7 +29,7 @@ import org.springframework.test.web.servlet.MvcResult;
  * <p>The test user is inserted directly as a test fixture only. Real projects provision users
  * through their own approved route; the scaffold ships no built-in user or password.
  */
-@SpringBootTest(properties = {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "koiki.identity.login-attempt.source-hmac-key-id=scaffold-test",
         // Test-only key (Base64 of 32 bytes); real keys come from the deployment environment.
         "koiki.identity.login-attempt.source-hmac-key=c2NhZmZvbGQtdGVzdC1obWFjLWtleS0zMi1ieXRlcyE=",
@@ -90,6 +90,9 @@ class ScaffoldApplicationTest {
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/"))
                 .andReturn();
         Cookie session = Objects.requireNonNull(login.getResponse().getCookie("SESSION"));
+        assertThat(session.getSecure()).isFalse();
+        assertThat(session.isHttpOnly()).isTrue();
+        assertThat(session.getAttribute("SameSite")).isEqualTo("Lax");
 
         mvc.perform(get("/").cookie(session))
                 .andExpect(status().isOk())
