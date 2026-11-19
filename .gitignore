@@ -1,0 +1,7 @@
+target/
+.koiki/
+*.log
+.idea/
+*.iml
+.vscode/
+.env

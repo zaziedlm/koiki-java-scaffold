@@ -1,0 +1,13 @@
+# Pinned KOIKI Framework distribution. Change all values together in one reviewed change,
+# together with the koiki-parent version in pom.xml.
+koiki.version=0.1.0-preview.2
+koiki.archive.sha256=7858dc3719ed9f8f0fab164e6dfa2e6015893dd971b0d7bd6a48a37136aab08e
+# SHA-256 of the reviewed tools/prepare-koiki.ps1; must equal the copy bundled in the ZIP.
+koiki.prepare-script.sha256=8ed85c91d1ab55027c374f70fdd67aa307de0c26c4f78b6c79d61ba2cb4bed4a
+# Copy to koiki-distribution.properties when importing into the internal repository.
+# Replace host/repository before first Prepare. Keep the exact ZIP/tag/asset/hash.
+# Authentication failure stops the operation; there is no public fallback.
+koiki.distribution.source=GitHubCli
+koiki.distribution.host=REPLACE_WITH_INTERNAL_GITHUB_HOST
+koiki.distribution.repository=REPLACE_ORG/REPLACE_FRAMEWORK_REPO
+# base-url is unused with GitHubCli; the configured host is used for gh.
