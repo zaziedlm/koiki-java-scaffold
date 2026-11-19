@@ -11,7 +11,14 @@ Framework `0.1.0-preview.2`、Spring MVC／Thymeleaf、local認証、JDBC Sessio
 コンテナ起動と停止・再起動後の同じユーザーでのloginを確認しました。自動testは13件成功です。
 確認範囲と結果は[手順書§11.1](docs/development/local-setup-guide.md#111-windowsローカルでの初回検証2026-11-19)に記録しています。
 
-## アプリの実行方式は2択：JAR実行／コンテナ実行
+## ローカル実行：JAR／Docker Compose／Kubernetes
+
+この節は既存のJAR／Docker Compose方式です。
+KubernetesでPodを動かす場合は、[Rancher Desktop用の専用手順書](docs/development/kubernetes-local-guide.md)を使ってください。
+**JAR／ComposeとKubernetesの同時実行は禁止です。DBも含めて停止してから方式を切り替えます。**
+Rancher DesktopのKubernetes1.37.2でもPod起動・DB接続・login／権限表示・停止／再開を確認済みです。
+修正版CreateAdminは登録済みDBでの拒否と、DB再作成後の成功の両方でlog表示を確認しました。
+確認範囲は[専用手順書§9](docs/development/kubernetes-local-guide.md#9-検証記録)を参照してください。
 
 **アプリは次のどちらか1つで起動します。DBは両方式ともPostgreSQLコンテナです。**
 

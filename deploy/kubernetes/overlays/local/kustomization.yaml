@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: koiki-scaffold-local
+resources:
+  - namespace.yaml
+  - ../../base
+  - postgres.yaml
+images:
+  - name: koiki-java-scaffold
+    newTag: k8s-local
+patches:
+  - path: application-patch.yaml
