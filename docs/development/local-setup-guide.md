@@ -1,6 +1,6 @@
 # Framework取得からローカル起動までの開発環境構築手順書
 
-版：初版 v0.2（2026-11-17）
+版：v0.3（2026-11-19、Windowsローカル検証結果を反映）
 
 対象：KOIKI Framework `0.1.0-preview.2` を使う Scaffold
 
@@ -20,12 +20,13 @@
 ログイン・ログアウト、停止・再開を順に確認します。WindowsのPowerShell 7を主な操作環境とします。
 IDEがなくても実行できます。実行するコマンドは、特記がなければScaffold repositoryのrootが作業directoryです。
 
-この手順とpreview.2対応・初回登録scriptは`chore/scaffold-preview2`ブランチにまとめます。
-検証するbranchは§3のとおりです。mainへの統合はローカルPCでの検証後に行います。
-元の開発branchや初期mainだけでは本手順のファイルが揃いません。
+この手順とpreview.2対応・初回登録scriptの検証対象branchは§3のとおりです。
+今回Windowsで確認したcommitは§11.1に記録しています。
 
 Cloud Linuxでは後述の13 testと、packaged JAR＋Compose DBでのHTTP login／logoutまで確認済みです。
-Windowsでの本手順の通し実行・実browser操作は未確認であり、利用者の初回検証結果を追記する前提の初版です。
+WindowsでもVSCodeのPowerShell terminalからPrepare・CreateAdmin・JAR起動を実行し、
+実browserでlogin・権限表示・logoutとJARの再実行を確認しました。
+コンテナ方式も起動と停止・再起動後の同じユーザーでのloginを確認済みです（2026-11-19、§11.1）。
 社内GitHub実接続は未検証です。設定解決・CLIへのhost引渡し・失敗時の停止はローカル代替CLIで確認済みです。
 社内設定を指定したPrepareについても、既存の検証済みZIP cacheからの42 payload登録と13 test成功を確認済みです。
 コンテナ方式もCloud Linuxでimage build・非root実行・管理ユーザーのHTTP login／logout・停止／再起動後の再loginを確認済みです。
@@ -480,6 +481,7 @@ clone先には本sessionの検証用ユーザー・`.env`・password・DBデー�
 | pwsh／javac／javaが見つからない、Java版エラー | PowerShell 7・JDK 21のinstall、PATH・JAVA_HOMEを確認しterminalを開き直す |
 | Docker Serverへ接続できない | Dockerを起動し、`docker version`のServer応答・Linux container設定を確認 |
 | 5432／8080が使用中 | §2のport確認で既存processを特定する。別用途のDB／Javaを無断停止せず、環境を整理して再実行 |
+| 初回Prepare前のCompose操作でSCAFFOLD_DB_PASSWORD不足 | `.env`未作成の場合は§4のPrepareを先に実行する。Composeは状態確認のpsでも設定を展開するため、このエラーになり得る。既存.envがある場合は次の行を参照 |
 | .envの値が空、Unsupported .env syntax/key | `.env.example`を参照しKEY=valueで設定。Prepareは既存.envを補完・上書きしない |
 | DBがhealthyにならない／DB認証失敗 | `docker compose ps -a db`と`docker compose logs --tail 100 db`を確認。既存volumeと.envのpassword不一致にも注意。volumeを安易に削除しない |
 | ZIP取得失敗、HTTP／DNS／TLSエラー | 社内host・repository・gh認証／読取権限・proxy・社内証明書設定を確認。publicへ切り替えて回避しない |
@@ -515,5 +517,29 @@ clone先には本sessionの検証用ユーザー・`.env`・password・DBデー�
 | browser操作 | login、SCAFFOLD:ADMIN表示、logout、ホーム再アクセスの結果 |
 | 停止・再開 | ユーザーを保持して再ログインできるか |
 | 問題 | 失敗段階、secretを除去したerror、対処、再確認結果 |
+
+### 11.1 Windowsローカルでの初回検証（2026-11-19）
+
+利用者がVSCodeのPowerShell terminalでコマンドを実行し、実browserで操作した結果です。
+Cloud Linuxの検証結果とは分けて記録します。
+
+| 項目 | 結果 |
+| --- | --- |
+| 対象source | `chore/scaffold-preview2`、`1702eb82fe6783e1b1072b17e4fd28a1cd831bdf` |
+| 環境 | Windows、VSCode、Temurin JDK 21.0.13、PowerShell 7.6.10、Rancher DesktopのDocker Engine 29.5.3（Linux container）、Docker Compose 5.1.4 |
+| Framework取得・build | public配布設定のPrepareがBUILD SUCCESSで完了し、実行可能JARを生成。独自Maven repositoryの指定なし |
+| 自動test | ローカルのSurefire XMLで13件成功（Architecture 2、Application 6、Session Cookie 1、初回登録4）、failure／error／skipすべて0 |
+| CreateAdmin | 利用者の実行logで初回管理ユーザー登録成功と正常終了を確認 |
+| JAR方式 | 起動logでTomcat port8080とアプリ起動完了を確認。利用者がbrowserでlogin・Permissions表示・logoutを確認し、再実行も確認 |
+| コンテナ方式 | 利用者がStartContainerの起動成功を確認。StopContainer→StartContainerの案内後、同じユーザーで再loginできたことを確認 |
+| 初回のつまずき | `.env`作成前の`docker compose ps db`はDB password不足で失敗。Prepareの実行で準備完了 |
+| WARN | アプリmigration未作成の`No migrations found`と、独自AuthenticationProvider構成の警告を観測。登録・起動・loginは成功 |
+
+コマンド結果・登録／起動logと利用者の操作報告に基づく記録です。
+ZIP／Maven登録済みpayloadの独立した再照合、DB Session／Audit件数、containerの実行user・終了code・OOM状態、
+browser Cookie属性・logout後のホーム再アクセスは今回の記録では個別に確認していません。
+コンテナでの権限表示・logoutの個別結果も、今回の操作報告だけでは確定しません。
+VSCodeのF5デバッグ・sources／Javadoc実表示、社内GitHub実接続、CI、AWS、本番運用は今回の確認範囲に含みません。
+メール・password・Cookie値・`.env`の内容は記録しません。
 
 関連文書：[README](../../README.md)、[KOIKI Framework採用方針・検証記録](../policy/koiki-framework-adoption-policy.md)。

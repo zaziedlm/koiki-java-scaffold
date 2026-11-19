@@ -7,6 +7,10 @@ Framework `0.1.0-preview.2`、Spring MVC／Thymeleaf、local認証、JDBC Sessio
 前提ツール、cloneする版、Frameworkの配置・参照先、社内取得設定、成功確認、停止・再開、トラブル対処を記載しています。
 設計上の判断と検証履歴は[KOIKI Framework採用方針](docs/policy/koiki-framework-adoption-policy.md)を参照してください。
 
+2026-11-19にWindows上のVSCode terminalで共通準備・初回管理ユーザー登録・JAR起動と再実行、
+コンテナ起動と停止・再起動後の同じユーザーでのloginを確認しました。自動testは13件成功です。
+確認範囲と結果は[手順書§11.1](docs/development/local-setup-guide.md#111-windowsローカルでの初回検証2026-11-19)に記録しています。
+
 ## アプリの実行方式は2択：JAR実行／コンテナ実行
 
 **アプリは次のどちらか1つで起動します。DBは両方式ともPostgreSQLコンテナです。**
@@ -98,7 +102,7 @@ Frameworkの`org.koikifw`名前空間やFramework migrationを案件用にcopy�
 CI定義は`docs/ci/ci.yml`に準備しており、まだ有効化していません。
 社内runner、Release読取資格情報、依存・image取得経路を設定し、`.github/workflows/`へ配置後に検証します。
 
-今回の整備は`chore/scaffold-preview2`ブランチで確認します。mainへの統合はローカルPCでの検証後に行います。
+Windowsローカル検証の対象は`chore/scaffold-preview2`ブランチの`1702eb8`です。
 公開Scaffoldを手元へ取得する場合：
 
 ```powershell

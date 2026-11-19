@@ -338,6 +338,32 @@ Evidenceはignoredの`.koiki/container-start.log`、`container-restart.log`、`v
 READMEは入口・操作早見表へ整理し、詳細手順は構築手順書の「共通準備→A JAR／Bコンテナ→停止・再開・切替」へ統一した。
 §7.5のJAR稼働保持は当時の状態とし、現在は上記コンテナを稼働保持する。
 
+### 7.7 WindowsローカルでのJAR／コンテナ検証（2026-11-19）
+
+利用者がWindows上のVSCodeのPowerShell terminalから本repositoryのscriptを実行し、
+実browserでアプリを確認した。対象は`chore/scaffold-preview2`、
+commit `1702eb82fe6783e1b1072b17e4fd28a1cd831bdf`、Framework `0.1.0-preview.2`。
+過去の§7.3〜7.6はCloudでの実施時点の記録として維持し、Windowsの結果は本節に分ける。
+
+| 確認 | 結果・根拠 |
+| --- | --- |
+| 環境 | Windows／VSCode、Temurin JDK21.0.13、PowerShell7.6.10、Rancher DesktopのDocker Engine29.5.3（Linux container）、Compose5.1.4 |
+| Prepare | public配布設定で実行し、利用者提示logでBUILD SUCCESSと準備完了を確認。独自Maven repository指定なし |
+| 自動test | ローカルSurefire XMLを読取確認。13件成功、failure／error／skip0 |
+| 初回登録 | 利用者提示logで同じpackaged JARからのCreateAdmin成功・正常終了を確認。Framework migration3件適用 |
+| JAR | 起動logでport8080・アプリ起動完了。利用者が実browserでlogin・SCAFFOLD:ADMIN表示・logoutを確認し、再実行も確認 |
+| コンテナ | 利用者がStartContainer成功を確認。停止・再起動手順の案内後、同じユーザーで再login成功と報告 |
+
+初回Prepare前のCompose状態確認は`.env`未作成のためDB password不足で失敗したが、Prepare実行で準備が完了した。
+アプリmigration未作成と独自AuthenticationProvider構成による想定内WARNを観測した。
+手順と確認範囲の詳細は[構築手順書§11.1](../development/local-setup-guide.md#111-windowsローカルでの初回検証2026-11-19)を参照。
+
+今回のWindows検証ではDB Session／Audit件数、container非root・終了code・OOM、Cookie属性、
+logout後のホーム再アクセスを個別確認していない。コンテナの権限表示・logoutも個別結果の報告はない。
+Cloudで得たこれらの結果をWindowsの証拠として流用しない。
+VSCodeのF5デバッグ・sources／Javadoc実表示、社内GitHub実接続、CI、AWS、本番運用は対象外。
+secret・メール・password・Cookie値は記録しない。
+
 ## 8. 次の手順（案）
 
 1. **初回ユーザー**：ローカル開発は§7.5のCreateAdminで登録・起動できる。本番のbootstrap・追加ユーザー管理・password回復は別途案件判断。
