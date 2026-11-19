@@ -4,6 +4,11 @@
 
 対象：KOIKI Framework `0.1.0-preview.2` を使う Scaffold
 
+本書はJAR／Docker Compose方式の手順です。Kubernetesは[専用手順書](kubernetes-local-guide.md)を使います。
+**JAR／ComposeとKubernetesの同時実行は禁止です。** Kubernetesから切り替えるときは、専用scriptのStopで
+アプリ・DBを停止し、StatusでPodの停止を確認、Forwardを終了してから本書の手順へ進みます。
+方式切替時にはbrowserの`127.0.0.1`のCookieを消去します。専用Cookie名は追加していません。
+
 > **アプリの実行方式は、次の2つからどちらか1つを選びます。**
 >
 > **A. JAR実行**：PC上のJavaでアプリJARを直接起動します。

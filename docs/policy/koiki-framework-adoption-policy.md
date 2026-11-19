@@ -146,6 +146,16 @@ Reference（`koiki-reference-app`）の直接依存のうち、Spring MVC系の�
 - base imageはdigestで固定する。AWS向けの固有設定（ECR・ECS等）は本土台に含めず、案件で追加する。
 - Docker Desktop等のcontainer実行環境は開発PCの前提ツールに追加する。
 
+### 5.4 ローカルKubernetesの追加方針（2026-11-19）
+
+- Rancher DesktopのMoby／dockerd、Kubernetes 1.37.2を対象に、`deploy/kubernetes/base`と`overlays/local`へ定義を分離する。
+- 共通Dockerfile・JARを再利用し、既存の`compose.yaml`・`run-local.ps1`・Java code・Framework配布物は変更しない。
+- `tools/run-kubernetes-local.ps1`で専用context／namespace、DB／PVC、ランダム秘密値を扱う。Composeの`.env`は利用しない。
+- JAR／ComposeとKubernetesはDBも含めて同時実行禁止。方式切替時は停止とbrowser Cookie消去を行い、専用Cookie名を追加しない。
+- 初回ユーザー登録はPCから所有するDB port-forwardを介して既存Java runnerを実行し、loopback・空Identity制限を維持する。
+- 共通定義は将来のEKS配備設計の出発点とする。ローカルDB・storage・HTTP設定はlocal overlayへ置き、EKS／本番用の設定とは扱わない。
+- WindowsでPod実行・DB接続・初回登録・login／権限表示・停止／再開を確認済み。詳細は§7.8と[専用手順書](../development/kubernetes-local-guide.md)に記録する。
+
 ## 6. 土台の初期構成
 
 ```
@@ -363,6 +373,30 @@ logout後のホーム再アクセスを個別確認していない。コンテ�
 Cloudで得たこれらの結果をWindowsの証拠として流用しない。
 VSCodeのF5デバッグ・sources／Javadoc実表示、社内GitHub実接続、CI、AWS、本番運用は対象外。
 secret・メール・password・Cookie値は記録しない。
+
+### 7.8 Rancher DesktopでのKubernetesローカル検証（2026-11-19）
+
+`feat/local-kubernetes`で追加した設定と専用scriptを、利用者がWindowsのVSCode terminalで実行した。
+対象はRancher Desktop Moby／Docker Engine29.5.3、Kubernetes1.37.2、Temurin JDK21.0.13、PowerShell7.6.10。
+Framework版は0.1.0-preview.2。既存のCompose／JAR検証とは分けて記録する。
+
+| 確認 | 結果・根拠 |
+| --- | --- |
+| オフライン確認 | PowerShell構文解析、guard確認11件、Kustomize展開、git diff --check成功 |
+| Prepare | 利用者提示logでFramework14座標／42 payload照合、verifyのtest13件成功・failure／error／skip0、Docker build成功 |
+| DB準備 | 専用namespace・Secret・StatefulSetを作成。DB起動待ち完了、local-path PVCがBound |
+| Pod実行 | 対象Podのprefix付きlogでport8080・アプリ起動完了とscaffold-dbへの接続を確認。利用者が18080経由でlogin・SCAFFOLD:ADMIN表示を確認 |
+| 停止・再開 | 利用者提示Statusでapp／DBとも0/0・Podなし・PVC保持を確認。利用者が再実行後の動作を確認 |
+| 初回登録の表示修正 | 初版の表示不足を受け、子Javaの標準出力・標準エラーの明示取得と成功確認を追加。既存DBでは再登録拒否の例外・script失敗表示を確認 |
+| 空DBでの成功確認 | 利用者が専用PVCを削除・再作成し、新VOLUMEを確認。Framework migration3件適用と修正版CreateAdminの成功メッセージ2つをlogで確認。その後のlogin・権限表示も利用者が確認 |
+
+DB再作成ではComposeのvolume・KubernetesのSecret・ローカル秘密値ファイルを削除していない。
+通常停止とデータ消去を区別し、例外的な再作成手順を[専用手順書§7.1](../development/kubernetes-local-guide.md#71-検証用dbを空にして初回登録をやり直す場合だけ)へ記載した。
+同時実行禁止は利用者の運用制約でもあり、既存Compose用scriptによる逆方向の自動検出は追加していない。
+
+Kubernetesでのlogout・logout後の再アクセス、Cookie属性、DB Session／Audit件数、containerの実行user・終了code・OOM、
+異常系guardの実クラスタ確認は今回の確認結果に含めない。EKS／AWS実接続・本番運用は対象外。
+メール・password・Cookie値・Secret内容は記録しない。
 
 ## 8. 次の手順（案）
 

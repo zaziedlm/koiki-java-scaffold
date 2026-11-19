@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scaffold
+spec:
+  # Prepare starts only the DB. Start explicitly scales the app to one replica.
+  replicas: 0
+  template:
+    spec:
+      containers:
+        - name: app
+          imagePullPolicy: Never
+          args:
+            - --server.servlet.session.cookie.secure=false
