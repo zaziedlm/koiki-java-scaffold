@@ -2,6 +2,7 @@ package com.example.scaffold;
 
 import java.text.Normalizer;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import org.koikifw.audit.AuditActor;
 import org.koikifw.audit.AuditEvent;
@@ -28,7 +29,7 @@ final class LocalAdminProvisioner {
         this.audit = audit;
     }
 
-    void create(String email, char[] password) {
+    UUID create(String email, char[] password) {
         String address = email.trim();
         if (address.isEmpty() || address.length() > 320 || !address.contains("@")
                 || address.codePoints().anyMatch(c -> c > 127 || Character.isWhitespace(c)
@@ -45,7 +46,7 @@ final class LocalAdminProvisioner {
             throw new IllegalArgumentException("The password must fit within 72 UTF-8 bytes.");
         }
         String encoded = encoder.encode(normalized);
-        transaction.executeWithoutResult(status -> {
+        return Objects.requireNonNull(transaction.execute(status -> {
             // Serializes concurrent first-user attempts. Existing accounts are never overwritten.
             jdbc.sql("lock table koiki_user in exclusive mode").update();
             if (jdbc.sql("select count(*) from koiki_user").query(Long.class).single() != 0) {
@@ -72,6 +73,7 @@ final class LocalAdminProvisioner {
             // No authenticated actor exists yet. Do not fabricate a FrameworkPrincipal.
             audit.record(AuditEvent.of("SCAFFOLD_BOOTSTRAP", AuditActor.anonymous(),
                     "CREATE_INITIAL_ADMIN", AuditResult.SUCCESS).withSubject(user.toString()));
-        });
+            return user;
+        }));
     }
 }

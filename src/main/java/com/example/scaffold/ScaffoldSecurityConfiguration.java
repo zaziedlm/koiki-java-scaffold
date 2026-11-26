@@ -5,6 +5,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,6 +18,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * request that no application chain matches. CSRF and the standard security headers stay enabled.
  */
 @Configuration(proxyBeanMethods = false)
+@Profile("!cognito & !aws")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 class ScaffoldSecurityConfiguration {
 

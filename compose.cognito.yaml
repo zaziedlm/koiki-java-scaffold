@@ -1,0 +1,12 @@
+# Local Cognito verification. The base Compose command enables HTTP cookies for loopback.
+services:
+  app:
+    ports: !override
+      - "127.0.0.1:18080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: cognito
+      SCAFFOLD_COGNITO_PUBLIC_ORIGIN: http://localhost:18080
+      SCAFFOLD_COGNITO_ISSUER: ${SCAFFOLD_COGNITO_ISSUER:?Set the Cognito issuer}
+      SCAFFOLD_COGNITO_DOMAIN: ${SCAFFOLD_COGNITO_DOMAIN:?Set the Cognito Managed Login origin}
+      SCAFFOLD_COGNITO_CLIENT_ID: ${SCAFFOLD_COGNITO_CLIENT_ID:?Set the Cognito app client ID}
+      SCAFFOLD_COGNITO_CLIENT_SECRET: ${SCAFFOLD_COGNITO_CLIENT_SECRET:?Supply the Cognito app client secret securely}

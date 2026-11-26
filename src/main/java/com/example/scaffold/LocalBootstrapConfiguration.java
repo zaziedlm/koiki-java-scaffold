@@ -18,7 +18,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 /** Explicit non-Web, loopback PostgreSQL bootstrap used only by tools/run-local.ps1. */
 @Configuration(proxyBeanMethods = false)
-@Profile("local-bootstrap")
+@Profile("local-bootstrap & !cognito & !aws & !cognito-link")
 @ConditionalOnNotWebApplication
 @ConditionalOnProperty(name = "scaffold.bootstrap-admin.enabled", havingValue = "true")
 class LocalBootstrapConfiguration {
@@ -39,8 +39,9 @@ class LocalBootstrapConfiguration {
             }
             char[] password = input.toCharArray();
             try {
-                new LocalAdminProvisioner(jdbc, encoder, manager, audit).create(email, password);
+                var userId = new LocalAdminProvisioner(jdbc, encoder, manager, audit).create(email, password);
                 System.out.println("Initial local administrator created. Role: SCAFFOLD_ADMIN; permission: SCAFFOLD:ADMIN.");
+                System.out.println("Framework user ID: " + userId);
             } finally {
                 Arrays.fill(password, '\0');
             }
