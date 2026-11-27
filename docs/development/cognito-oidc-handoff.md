@@ -67,6 +67,19 @@
 - **Cognito がリダイレクトを拒否する**場合は、App Client に登録した URL と実際のスキーム、ホスト、ポート、パスを照合。サインアウト URL も今回の検証では `http://`。
 - **Cognito ではログインできるがアプリが拒否する**場合は、コンテナからの issuer／Managed Login への HTTPS 通信、クライアント設定、対応表の issuer／sub、KOIKI ユーザーの状態を順に確認。ログには認可コードやトークンを載せない。
 
+## Windows PC での実接続結果
+
+2026-11-27。対象コミットは `3bcd56b`。東京リージョンの検証用 User Pool `koiki-scaffold-dev` と、Docker Compose の `http://localhost:18080/` を使用した。
+
+| 確認項目 | 結果 |
+| --- | --- |
+| ローカルビルド | JDK 21 の Maven Wrapper `verify` で15件成功。Docker イメージのビルドも成功。 |
+| ユーザー対応付け | 検証ユーザーを、既存の PostgreSQL に登録済みの有効な KOIKI 管理者に `cognito-link` で対応付けた。 |
+| 実ログイン | Cognito を経由してホームに戻り、既存の KOIKI ユーザー ID と `SCAFFOLD:ADMIN` を確認した。 |
+| ログアウト後の再アクセス | ログアウト後にホームを開くと、Cognito のサインイン入力画面が再表示された。`/signed-out` 単体の HTTP 200 は確認済み。ブラウザーでの戻り先 URL の個別記録、旧 Cookie の再送、未対応付けユーザーでの実 Pool の拒否確認は未実施。 |
+
+初回は Cognito からアプリに戻った後、アプリのログイン失敗画面が表示された。コンテナ内 Java の HTTPS 診断で、公開鍵取得は成功し、Managed Login のトークン交換先では社内 HTTPS プロキシ経由の証明書チェーンが `PKIX` エラーになった。チェーンの指紋を Windows に配布済みの CA と照合し、コンテナの既定 `cacerts` を複製した `jssecacerts` に Windows の信頼ストアから取り出したルート CA を追加した。アプリを再起動し、TLS 検証を有効にした状態で両方の接続先から HTTP 応答を受け取れることを確認した。この対応は現在の検証用コンテナに限られ、コンテナを再作成すると再適用が必要。
+
 ## AWS 配置前に残る判断
 
-AWS 検証用の公開 HTTPS URL と専用コールバック／戻り先を決定し、App Client Secret の供給方法を設定する。空の AWS DB では、最初の KOIKI 管理者を作成し、Cognito ID を対応付ける運用が必要。Cognito 側だけでユーザーを無効化した際の既存アプリセッションの失効方法と許容時間も決める。ローカルで実 Pool の確認が済んだら、結果と対象コミットをこの文書に追記する。
+AWS 検証用の公開 HTTPS URL と専用コールバック／戻り先を決定し、App Client Secret の供給方法を設定する。空の AWS DB では、最初の KOIKI 管理者を作成し、Cognito ID を対応付ける運用が必要。Cognito 側だけでユーザーを無効化した際の既存アプリセッションの失効方法と許容時間も決める。
